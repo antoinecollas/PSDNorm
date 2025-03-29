@@ -32,6 +32,7 @@ parser.add_argument("--model_name", type=str, default="USleep")
 parser.add_argument("--balanced", action="store_true")
 parser.add_argument("--use_amp", action="store_true")
 parser.add_argument("--num_workers", type=int, default=40)
+parser.add_argument("--print_tqdm", action="store_true")
 
 args = parser.parse_args()
 
@@ -42,6 +43,7 @@ model_name = args.model_name
 balanced = args.balanced
 use_amp = args.use_amp
 num_workers = args.num_workers
+print_tqdm = args.print_tqdm
 
 if use_amp:
     print("BE CAREFUL! AMP is enabled.")
@@ -136,6 +138,8 @@ for dataset_name in dataset_sources:
         subject_ids_dataset, test_size=0.2, random_state=seed
     )
 
+print(f"Target dataset: {dataset_target}")
+
 # %%
 probs = get_probs(metadata, dataset_sources, alpha=0.5)
 
@@ -162,7 +166,7 @@ dataloader_val = get_dataloader(
     dataset_names=dataset_sources,
     subject_ids=subject_ids_val,
     n_windows=n_windows,
-    n_windows_stride=n_windows_stride_inference,
+    n_windows_stride=n_windows_stride,
     batch_size=batch_size_inference,
     num_workers=num_workers,
     pin_memory=pin_memory,
@@ -245,7 +249,7 @@ for epoch in range(n_epochs):
     running_loss = 0.0
     running_window = len(dataloader_train) // 20  # Number of batches for averaging loss
     for i, (batch_X, batch_y, _, _) in enumerate(
-        tqdm(dataloader_train, desc="Training", unit="batch")
+        tqdm(dataloader_train, desc="Training", unit="batch", disable=not print_tqdm)
     ):
         optimizer.zero_grad()
         batch_X = batch_X.to(device, non_blocking=True)
@@ -265,7 +269,7 @@ for epoch in range(n_epochs):
 
         # Update tqdm progress bar every running_window batches with average loss
         running_loss += loss_batch.item()
-        if (i + 1) % running_window == 0:
+        if (i + 1) % running_window == 0 and print_tqdm:
             avg_loss = running_loss / running_window
             tqdm.write(f"Batch {i+1}/{len(dataloader_train)}, Avg Loss: {avg_loss:.3f}")
             running_loss = 0.0
@@ -288,7 +292,7 @@ for epoch in range(n_epochs):
         val_loss = np.zeros(len(dataloader_val))
         y_pred_all, y_true_all = list(), list()
         for i, (batch_X, batch_y, _, _) in enumerate(
-            tqdm(dataloader_val, desc="Validation", unit="batch")
+            tqdm(dataloader_val, desc="Validation", unit="batch", disable=not print_tqdm)
         ):
             batch_X = batch_X.to(device, non_blocking=True)
             batch_y = batch_y.to(device, non_blocking=True)
@@ -383,7 +387,7 @@ results_by_subject = defaultdict(lambda: {"y_pred": [], "y_true": []})
 best_model.eval()
 with torch.no_grad():
     for batch_X, batch_y, batch_sub_id, batch_session_id in tqdm(
-        dataloader_target, desc="Inference on target", unit="batch"
+        dataloader_target, desc="Inference on target", unit="batch", disable=not print_tqdm
     ):
         batch_X = batch_X.to(device, non_blocking=True)
         batch_y = batch_y.to(device, non_blocking=True)
