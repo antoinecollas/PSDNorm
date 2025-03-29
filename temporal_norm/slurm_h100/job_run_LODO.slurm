@@ -15,8 +15,7 @@
 #SBATCH --hint=nomultithread
 
 ## JOB ACCOUNTABILITY
-#SBATCH --qos=qos_gpu-t3
-#SBATCH --time=01:00:00
+#SBATCH --time=10:00:00
 #SBATCH --array=0-39
 
 ## ENV ACTIVATION
@@ -56,6 +55,6 @@ echo "Running: Dataset=$DATASET | Norm=$NORM | Model=$MODEL_NAME"
 ## CODE EXECUTION
 srun python run_LODO.py \
     --dataset "$DATASET" \
-    --percent 0.01 \
+    --percent 1 \
     --norm "$NORM" \
     --model_name "$MODEL_NAME"
